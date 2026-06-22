@@ -1,0 +1,11 @@
+import { defineConfig } from 'vite'
+import cesium from 'vite-plugin-cesium'
+
+export default defineConfig({
+  plugins: [cesium()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/__tests__/setup.js'],
+  },
+})

@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make venv)",
+      "Bash(make install)",
+      "Bash(make install-dev)",
+      "Bash(make local-dev)",
+      "Bash(make local-test)",
+      "Bash(make local-lint)",
+      "Bash(make seed)",
+      "Bash(make refresh)",
+      "Bash(make serve-frontend)",
+      "Bash(uv pip install:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python -m ruff:*)",
+      "Bash(ruff check:*)",
+      "Bash(ruff format:*)",
+      "Bash(cd backend && python -m pytest:*)",
+      "Bash(cd backend && python -m ruff:*)",
+      "Bash(npm --prefix frontend run:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx playwright:*)",
+      "Bash(mkdir -p:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(git switch:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git push:*)",
+      "Bash(rm \"d:/User Profile/Documents/satellite-tracking-system/specs/roadmap.md\")",
+      "Bash(mkdir \"d:/User Profile/Documents/satellite-tracking-system/specs/spec-S1.3-pydantic-settings\")",
+      "Bash(mkdir \"d:/User Profile/Documents/satellite-tracking-system/specs/spec-S3.5-persist-satellites\")",
+      "Bash(.venv/Scripts/python -m pytest backend/tests/services/test_window_sampling.py -v --tb=short -q)"
+    ],
+    "deny": [
+      "Bash(git push origin main:*)",
+      "Bash(git commit --author:*)"
+    ],
+    "additionalDirectories": [
+      "d:\\User Profile\\Documents\\satellite-tracking-system\\specs"
+    ]
+  }
+}

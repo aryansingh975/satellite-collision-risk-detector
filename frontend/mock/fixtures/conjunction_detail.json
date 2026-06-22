@@ -1,0 +1,12 @@
+{
+  "id": 1,
+  "sat_a": 25544,
+  "sat_b": 46984,
+  "sat_a_name": "ISS (ZARYA)",
+  "sat_b_name": "COSMOS 2251 DEB",
+  "tca": "2026-06-21T06:23:45Z",
+  "miss_km": 0.82,
+  "rel_vel_kms": 14.21,
+  "window_start": "2026-06-21T00:00:00Z",
+  "computed_at": "2026-06-21T00:00:00Z"
+}

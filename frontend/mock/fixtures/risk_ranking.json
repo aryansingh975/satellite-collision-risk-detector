@@ -1,0 +1,52 @@
+[
+  {
+    "rank": 1,
+    "sat_a": 25544,
+    "sat_b": 46984,
+    "sat_a_name": "ISS (ZARYA)",
+    "sat_b_name": "COSMOS 2251 DEB",
+    "miss_km": 0.82,
+    "rel_vel_kms": 14.21,
+    "tca": "2026-06-21T06:23:45Z"
+  },
+  {
+    "rank": 2,
+    "sat_a": 25544,
+    "sat_b": 52753,
+    "sat_a_name": "ISS (ZARYA)",
+    "sat_b_name": "FENGYUN 1C DEB",
+    "miss_km": 1.47,
+    "rel_vel_kms": 12.83,
+    "tca": "2026-06-21T14:52:11Z"
+  },
+  {
+    "rank": 3,
+    "sat_a": 20580,
+    "sat_b": 39086,
+    "sat_a_name": "HST",
+    "sat_b_name": "SL-14 DEB",
+    "miss_km": 2.15,
+    "rel_vel_kms": 11.67,
+    "tca": "2026-06-22T03:17:08Z"
+  },
+  {
+    "rank": 4,
+    "sat_a": 46984,
+    "sat_b": 52753,
+    "sat_a_name": "COSMOS 2251 DEB",
+    "sat_b_name": "FENGYUN 1C DEB",
+    "miss_km": 3.38,
+    "rel_vel_kms": 9.45,
+    "tca": "2026-06-22T11:45:33Z"
+  },
+  {
+    "rank": 5,
+    "sat_a": 20580,
+    "sat_b": 46984,
+    "sat_a_name": "HST",
+    "sat_b_name": "COSMOS 2251 DEB",
+    "miss_km": 4.91,
+    "rel_vel_kms": 15.22,
+    "tca": "2026-06-23T07:12:19Z"
+  }
+]

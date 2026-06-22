@@ -1,0 +1,631 @@
+openapi: 3.1.0
+info:
+  title: Satellite Collision Risk Detector API
+  version: 1.0.0
+  description: |
+    REST API for the Satellite Collision Risk Detector.
+
+    Tracks satellites from TLE orbital data, predicts close approaches
+    (conjunctions), and serves positions, orbit data, and risk events to the
+    CesiumJS frontend.
+
+    **Data source**: CelesTrak GP API (free, 2-hour update cadence — one
+    download per update cycle, cached locally, never re-fetched on every
+    request).
+
+    **Frames**: Conjunction math is performed in TEME; positions returned by
+    this API are geodetic (lat/lon/alt above WGS-84), converted only at the
+    display boundary.
+
+    **Collision risk disclaimer**: This API reports *potential close approaches*
+    (miss distance at TCA), NOT collision probability. TLEs carry no covariance
+    data, so probability calculation is out of scope.
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Satellites
+    description: Satellite metadata and geodetic position tracks
+  - name: Conjunctions
+    description: Predicted close approaches (conjunctions) at TCA
+  - name: Stats
+    description: Aggregate statistics for the insights dashboard
+
+servers:
+  - url: http://localhost:8000
+    description: Live FastAPI backend (uvicorn, `make local-dev`)
+  - url: http://localhost:8001
+    description: |
+      Mock server for frontend development (`frontend/mock/server.js`).
+      Set `VITE_API_BASE_URL=http://localhost:8001` to use the mock.
+      Set `VITE_API_BASE_URL=http://localhost:8000` to use the live backend.
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health_check
+      tags: [Health]
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /satellites:
+    get:
+      summary: List satellites
+      operationId: list_satellites
+      tags: [Satellites]
+      parameters:
+        - name: group
+          in: query
+          required: false
+          schema:
+            type: string
+          description: CelesTrak group name (e.g. "active", "gnss", "geo")
+        - name: regime
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [LEO, MEO, GEO, HEO]
+          description: Filter by orbital regime
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset (number of records to skip)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Maximum number of results to return
+      responses:
+        "200":
+          description: Array of satellites matching the filters (empty array if none)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SatelliteOut"
+
+  /satellites/{catalog_no}:
+    get:
+      summary: Get satellite detail
+      operationId: get_satellite
+      tags: [Satellites]
+      parameters:
+        - name: catalog_no
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: NORAD catalog number (5-digit)
+      responses:
+        "200":
+          description: Full satellite detail including orbital elements and raw TLE lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SatelliteDetail"
+        "404":
+          description: Satellite not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDetail"
+
+  /satellites/{catalog_no}/positions:
+    get:
+      summary: Get sampled position track for one satellite
+      operationId: get_positions
+      tags: [Satellites]
+      parameters:
+        - name: catalog_no
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: NORAD catalog number
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Track start time (ISO 8601 UTC, e.g. "2026-06-21T00:00:00Z")
+        - name: stop
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Track end time (ISO 8601 UTC)
+        - name: step
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 60
+          description: Propagation step in seconds (default 60)
+      responses:
+        "200":
+          description: Sampled geodetic position track for CesiumJS SampledPositionProperty
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PositionsResponse"
+        "404":
+          description: Satellite not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDetail"
+
+  /positions:
+    get:
+      summary: Bulk position tracks for multiple satellites (single request)
+      operationId: get_bulk_positions
+      tags: [Satellites]
+      description: |
+        Returns position tracks for multiple satellites in one call, avoiding
+        N separate `/satellites/{id}/positions` requests from the frontend.
+        Internally uses vectorized SGP4 propagation (SatrecArray).
+      parameters:
+        - name: catalog_nos
+          in: query
+          required: true
+          schema:
+            type: string
+          description: |
+            Comma-separated NORAD catalog numbers, e.g. "25544,20580,26360".
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Track start time (ISO 8601 UTC)
+        - name: stop
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Track end time (ISO 8601 UTC)
+        - name: step
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 60
+          description: Propagation step in seconds (default 60)
+      responses:
+        "200":
+          description: Array of position tracks, one PositionsResponse per requested satellite
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PositionsResponse"
+
+  /conjunctions:
+    get:
+      summary: List conjunction (close-approach) events
+      operationId: list_conjunctions
+      tags: [Conjunctions]
+      description: |
+        Returns predicted conjunction events where miss distance at TCA is at or
+        below the given threshold. Events are ordered by miss_km ascending.
+
+        **Note**: These are *potential close approaches*, not collision
+        probabilities (TLEs contain no covariance data).
+      parameters:
+        - name: threshold
+          in: query
+          required: false
+          schema:
+            type: number
+            format: float
+            default: 5.0
+          description: |
+            Miss-distance threshold in km. Only events with miss_km ≤ threshold
+            are returned. Default 5.0 km matches CelesTrak SOCRATES threshold.
+        - name: window
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 72
+          description: Screening window in hours (how far ahead was screened)
+      responses:
+        "200":
+          description: Array of conjunction events (empty array if none below threshold)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConjunctionOut"
+
+  /conjunctions/{id}:
+    get:
+      summary: Get a single conjunction event by ID
+      operationId: get_conjunction
+      tags: [Conjunctions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Conjunction event primary key
+      responses:
+        "200":
+          description: Conjunction event detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConjunctionOut"
+        "404":
+          description: Conjunction not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDetail"
+
+  /stats/orbital-regions:
+    get:
+      summary: Satellite counts by orbital regime
+      operationId: get_orbital_regions
+      tags: [Stats]
+      description: |
+        Returns the count of tracked satellites in each orbital regime.
+        Invariant enforced server-side: `leo + meo + geo + heo == total`.
+        Satellites with a null regime are excluded from all counts.
+
+        Regime thresholds (mean motion `n` rev/day, eccentricity `e`):
+        - HEO: e ≥ 0.25
+        - LEO: n ≥ 11.25
+        - MEO: 1.2 ≤ n < 11.25
+        - GEO: n < 1.2
+      responses:
+        "200":
+          description: Satellite counts per regime
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrbitalRegionStats"
+
+  /stats/risk-ranking:
+    get:
+      summary: Top-N riskiest conjunction pairs ranked by miss distance
+      operationId: get_risk_ranking
+      tags: [Stats]
+      description: |
+        Returns the top-N conjunction events sorted ascending by miss_km
+        (rank 1 = closest approach = most dangerous). Used to populate the
+        risk-ranking table in the insights dashboard.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+          description: Maximum number of ranked pairs to return (default 10)
+      responses:
+        "200":
+          description: Risk ranking table sorted ascending by miss_km
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RiskRankingItem"
+
+components:
+  schemas:
+    SatelliteOut:
+      type: object
+      description: Lightweight satellite representation used in list responses.
+      required: [catalog_no, name, epoch, updated_at]
+      properties:
+        catalog_no:
+          type: integer
+          description: NORAD catalog number (unique primary key)
+          example: 25544
+        name:
+          type: string
+          description: Satellite common name from TLE header line
+          example: ISS (ZARYA)
+        intl_designator:
+          anyOf:
+            - type: string
+            - type: "null"
+          description: International designator (e.g. "1998-067A")
+          example: 1998-067A
+        epoch:
+          type: string
+          format: date-time
+          description: TLE epoch in UTC
+          example: "2026-06-20T06:00:00Z"
+        regime:
+          anyOf:
+            - type: string
+              enum: [LEO, MEO, GEO, HEO]
+            - type: "null"
+          description: Orbital regime (null until classification has run)
+          example: LEO
+        group_name:
+          anyOf:
+            - type: string
+            - type: "null"
+          description: CelesTrak group this satellite was fetched from
+          example: active
+        updated_at:
+          type: string
+          format: date-time
+          description: Last database update timestamp in UTC
+          example: "2026-06-21T00:00:00Z"
+
+    SatelliteDetail:
+      allOf:
+        - $ref: "#/components/schemas/SatelliteOut"
+        - type: object
+          description: Full satellite detail including orbital elements and raw TLE lines.
+          required: [line1, line2]
+          properties:
+            a_km:
+              anyOf:
+                - type: number
+                  format: double
+                - type: "null"
+              description: Semi-major axis in km, derived as (μ/n_rad²)^(1/3) where μ=398600.4418
+              example: 6778.5
+            ecc:
+              anyOf:
+                - type: number
+                  format: double
+                - type: "null"
+              description: Orbital eccentricity (dimensionless, 0–1)
+              example: 0.000234
+            inc_deg:
+              anyOf:
+                - type: number
+                  format: double
+                - type: "null"
+              description: Inclination in degrees
+              example: 51.64
+            mean_motion:
+              anyOf:
+                - type: number
+                  format: double
+                - type: "null"
+              description: Mean motion in revolutions per day
+              example: 15.4916
+            line1:
+              type: string
+              minLength: 69
+              maxLength: 69
+              description: TLE line 1 — stored byte-for-byte for deterministic re-propagation
+            line2:
+              type: string
+              minLength: 69
+              maxLength: 69
+              description: TLE line 2 — stored byte-for-byte for deterministic re-propagation
+
+    PositionSample:
+      type: object
+      description: Single geodetic position snapshot for one satellite at one instant.
+      required: [time, lat, lon, alt_km]
+      properties:
+        time:
+          type: string
+          format: date-time
+          description: Sample timestamp in UTC
+          example: "2026-06-21T00:00:00Z"
+        lat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          description: Geodetic latitude in degrees
+          example: 28.5
+        lon:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          description: Geodetic longitude in degrees
+          example: -45.2
+        alt_km:
+          type: number
+          format: double
+          minimum: 0
+          description: |
+            Altitude above WGS-84 ellipsoid in **kilometres**.
+            The CesiumJS frontend multiplies by 1000 before passing to
+            `Cartesian3.fromDegrees`.
+          example: 408.3
+
+    PositionsResponse:
+      type: object
+      description: Sampled position track for one satellite.
+      required: [catalog_no, name, positions]
+      properties:
+        catalog_no:
+          type: integer
+          description: NORAD catalog number
+          example: 25544
+        name:
+          type: string
+          description: Satellite name
+          example: ISS (ZARYA)
+        positions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PositionSample"
+          description: Time-ordered array of geodetic position samples
+
+    ConjunctionOut:
+      type: object
+      description: Conjunction (close-approach) event at TCA.
+      required:
+        [id, sat_a, sat_b, sat_a_name, sat_b_name, tca, miss_km, rel_vel_kms, window_start, computed_at]
+      properties:
+        id:
+          type: integer
+          description: Conjunction event primary key
+          example: 1
+        sat_a:
+          type: integer
+          description: NORAD catalog number of first satellite
+          example: 25544
+        sat_b:
+          type: integer
+          description: NORAD catalog number of second satellite
+          example: 46984
+        sat_a_name:
+          type: string
+          description: Name of first satellite
+          example: ISS (ZARYA)
+        sat_b_name:
+          type: string
+          description: Name of second satellite
+          example: COSMOS 2251 DEB
+        tca:
+          type: string
+          format: date-time
+          description: Time of closest approach in UTC
+          example: "2026-06-21T06:23:45Z"
+        miss_km:
+          type: number
+          format: double
+          minimum: 0
+          description: Miss distance at TCA in km (potential close approach — not collision probability)
+          example: 0.82
+        rel_vel_kms:
+          type: number
+          format: double
+          minimum: 0
+          description: Relative velocity at TCA in km/s
+          example: 14.21
+        window_start:
+          type: string
+          format: date-time
+          description: Start of the screening window in UTC
+          example: "2026-06-21T00:00:00Z"
+        computed_at:
+          type: string
+          format: date-time
+          description: Timestamp when this conjunction was computed in UTC
+          example: "2026-06-21T00:00:00Z"
+
+    OrbitalRegionStats:
+      type: object
+      description: |
+        Satellite counts per orbital regime.
+        Server-enforced invariant: `leo + meo + geo + heo == total`.
+        Satellites with null regime are excluded.
+      required: [leo, meo, geo, heo, total]
+      properties:
+        leo:
+          type: integer
+          minimum: 0
+          description: Count of LEO satellites (n ≥ 11.25 rev/day)
+          example: 2847
+        meo:
+          type: integer
+          minimum: 0
+          description: Count of MEO satellites (1.2 ≤ n < 11.25 rev/day)
+          example: 126
+        geo:
+          type: integer
+          minimum: 0
+          description: Count of GEO satellites (n < 1.2 rev/day)
+          example: 564
+        heo:
+          type: integer
+          minimum: 0
+          description: Count of HEO satellites (e ≥ 0.25)
+          example: 38
+        total:
+          type: integer
+          minimum: 0
+          description: Total classified satellites (leo + meo + geo + heo)
+          example: 3575
+
+    RiskRankingItem:
+      type: object
+      description: One row of the risk ranking table, sorted ascending by miss_km.
+      required: [rank, sat_a, sat_b, sat_a_name, sat_b_name, miss_km, rel_vel_kms, tca]
+      properties:
+        rank:
+          type: integer
+          minimum: 1
+          description: 1-based rank (rank 1 = smallest miss distance = most dangerous)
+          example: 1
+        sat_a:
+          type: integer
+          description: NORAD catalog number of first satellite
+          example: 25544
+        sat_b:
+          type: integer
+          description: NORAD catalog number of second satellite
+          example: 46984
+        sat_a_name:
+          type: string
+          description: Name of first satellite
+          example: ISS (ZARYA)
+        sat_b_name:
+          type: string
+          description: Name of second satellite
+          example: COSMOS 2251 DEB
+        miss_km:
+          type: number
+          format: double
+          minimum: 0
+          description: Miss distance at TCA in km (non-decreasing across ranks)
+          example: 0.82
+        rel_vel_kms:
+          type: number
+          format: double
+          minimum: 0
+          description: Relative velocity at TCA in km/s
+          example: 14.21
+        tca:
+          type: string
+          format: date-time
+          description: Time of closest approach in UTC
+          example: "2026-06-21T06:23:45Z"
+
+    ErrorDetail:
+      type: object
+      description: Consistent error envelope matching FastAPI's default HTTPException shape.
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: Satellite 99999 not found
