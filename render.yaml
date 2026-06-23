@@ -1,0 +1,54 @@
+# Render.com Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploys the satellite collision risk detector as a Docker-based web service.
+#
+# Setup (one-time):
+#   1. Push this repo to GitHub.
+#   2. Sign in at https://dashboard.render.com → New → Blueprint.
+#   3. Connect the repo; Render detects render.yaml automatically.
+#   4. In the Render Environment tab, set CESIUM_ION_TOKEN and CORS_ORIGINS
+#      if needed (both are optional for the prototype).
+#   5. Click "Apply" — Render builds the Docker image and runs the start command.
+#
+# The startCommand seeds CelesTrak TLE data (idempotent) before starting the
+# API server. Render free-tier web services use ephemeral storage, so the DB
+# is repopulated from CelesTrak on every cold boot; seed.py handles this safely.
+
+services:
+  - type: web
+    name: satellite-risk
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Render marks the service unhealthy if this endpoint returns non-200.
+    healthCheckPath: /health
+    # Seed CelesTrak data, then start uvicorn. seed.py is idempotent:
+    # running it twice will not create duplicate satellite or conjunction records.
+    startCommand: "python backend/scripts/seed.py && uvicorn backend.app.main:app --host 0.0.0.0 --port 8000"
+    envVars:
+      # ── non-secret defaults (override in the Render dashboard if needed) ──
+      - key: DATABASE_URL
+        value: sqlite:///./satellite_tracking.db
+      - key: TLE_CACHE_DIR
+        value: /tmp/tle_cache
+      - key: CELESTRAK_BASE_URL
+        value: https://celestrak.org/GPS/gp.php
+      - key: DEFAULT_GROUP
+        value: active
+      - key: TLE_MAX_AGE_HOURS
+        value: "2"
+      - key: SCREEN_WINDOW_HOURS
+        value: "48"
+      - key: SCREEN_STEP_SECONDS
+        value: "60"
+      - key: COARSE_RADIUS_KM
+        value: "15"
+      - key: RISK_THRESHOLD_KM
+        value: "5"
+      # ── set these in the Render dashboard — never hardcode real values ──
+      # CORS_ORIGINS: JSON array of allowed frontend origins, e.g. ["https://your-app.onrender.com"]
+      - key: CORS_ORIGINS
+        sync: false
+      # CESIUM_ION_TOKEN: optional — only needed for Cesium ion imagery (not required for prototype)
+      - key: CESIUM_ION_TOKEN
+        sync: false

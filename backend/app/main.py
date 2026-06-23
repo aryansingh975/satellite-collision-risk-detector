@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 
-from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -14,6 +13,7 @@ import app.db.database as _db
 import app.db.models  # noqa: F401 — registers ORM classes with Base before create_all
 from app.api import conjunctions, satellites, stats
 from app.core.config import settings
+from app.services.scheduler import start_scheduler
 
 
 @asynccontextmanager
@@ -22,15 +22,14 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
     _db.init_db()
 
     logger.info("startup: starting APScheduler")
-    scheduler = BackgroundScheduler()
-    scheduler.start()
-    application.state.scheduler = scheduler
+    sched = start_scheduler(settings, _db.SessionLocal)
+    application.state.scheduler = sched
     logger.info("startup: ready")
 
     yield
 
     logger.info("shutdown: stopping scheduler")
-    scheduler.shutdown(wait=False)
+    application.state.scheduler.shutdown(wait=False)
     logger.info("shutdown: complete")
 
 

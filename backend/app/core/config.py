@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     # CelesTrak
-    CELESTRAK_BASE_URL: str = "https://celestrak.org/GPS/gp.php"
+    CELESTRAK_BASE_URL: str = "https://celestrak.org/NORAD/elements/gp.php"
     DEFAULT_GROUP: str = "active"
 
     # Cache
@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     SCREEN_STEP_SECONDS: int = 60
     COARSE_RADIUS_KM: float = 15.0
     RISK_THRESHOLD_KM: float = 5.0
+    SCREEN_MAX_SATS: int = 5000
 
     # Optional frontend token — never commit a real value
     CESIUM_ION_TOKEN: Optional[str] = None

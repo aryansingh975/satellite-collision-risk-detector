@@ -6,25 +6,418 @@
     <title>Satellite Collision Risk Detector</title>
     <link rel="stylesheet" href="/cesium/Widgets/widgets.css" />
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; }
+      #cesiumContainer { width: 100vw; height: 100vh; }
+
+      /* ── Shared panel base ─────────────────────────────────────── */
+      .panel {
+        position: absolute;
+        z-index: 10;
+        background: rgba(8, 10, 18, 0.92);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.04);
+        color: #e2e8f0;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 12px;
       }
-      html,
-      body {
+
+      /* ── Search panel ──────────────────────────────────────────── */
+      #search-panel {
+        top: 12px;
+        left: 12px;
+        padding: 10px;
+        width: 260px;
+      }
+      #search-input {
         width: 100%;
-        height: 100%;
+        padding: 6px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        color: #e2e8f0;
+        font-size: 12px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      #search-input:focus { border-color: rgba(56, 189, 248, 0.5); }
+      #search-input::placeholder { color: #475569; }
+      #search-results {
+        list-style: none;
+        margin-top: 6px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      #search-results li {
+        padding: 5px 8px;
+        cursor: pointer;
+        border-radius: 5px;
+        color: #cbd5e1;
+      }
+      #search-results li:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+      #search-results li[disabled] { cursor: default; color: #475569; }
+
+      /* ── Info panel ────────────────────────────────────────────── */
+      #info-panel {
+        display: none;
+        top: 12px;
+        right: 12px;
+        padding: 12px 14px;
+        width: 280px;
+        max-height: calc(55vh - 12px);
+        overflow-y: auto;
+      }
+      #info-panel::-webkit-scrollbar { width: 3px; }
+      #info-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+      #info-panel h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #info-close {
+        background: none;
+        border: 1px solid rgba(255,255,255,0.12);
+        color: #64748b;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      #info-close:hover { color: #fff; background: rgba(255,255,255,0.08); }
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+      }
+      .info-label { color: #64748b; }
+      #info-conj-heading {
+        margin: 10px 0 5px;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        font-weight: 600;
+      }
+      #info-conjunctions { list-style: none; margin: 0; padding: 0; }
+      #info-conjunctions li {
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        font-size: 11px;
+        color: #cbd5e1;
+      }
+
+      /* ── Dashboard panel ───────────────────────────────────────── */
+      #dashboard-panel {
+        bottom: 12px;
+        right: 12px;
+        width: 420px;
+        max-height: calc(100vh - 24px);
+        display: flex;
+        flex-direction: column;
         overflow: hidden;
       }
-      #cesiumContainer {
-        width: 100vw;
-        height: 100vh;
+
+      /* Header */
+      #dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        flex-shrink: 0;
+        border-radius: 10px 10px 0 0;
       }
+      #dashboard-title {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: #f1f5f9;
+      }
+      #dashboard-toggle {
+        background: none;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #64748b;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        padding: 2px 7px;
+        border-radius: 4px;
+        transition: all 0.15s;
+      }
+      #dashboard-toggle:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+
+      /* Scrollable body */
+      #dashboard-body {
+        overflow-y: auto;
+        padding: 12px 14px 10px;
+        flex: 1;
+      }
+      #dashboard-body::-webkit-scrollbar { width: 3px; }
+      #dashboard-body::-webkit-scrollbar-track { background: transparent; }
+      #dashboard-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+      /* Stat cards */
+      #stat-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .stat-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-top: 2px solid transparent;
+        border-radius: 8px;
+        padding: 8px 10px;
+        text-align: center;
+      }
+      .stat-card.stat-blue  { border-top-color: #38bdf8; }
+      .stat-card.stat-orange { border-top-color: #f97316; }
+      .stat-card.stat-red   { border-top-color: #ef4444; }
+      .stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #f1f5f9;
+        line-height: 1.2;
+      }
+      .stat-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #475569;
+        margin-top: 3px;
+      }
+
+      /* Section headers */
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 12px 0 6px;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #64748b;
+      }
+      .section-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      /* Charts */
+      #regime-chart-container  { position: relative; height: 170px; }
+      #approach-chart-container { position: relative; height: 140px; margin-top: 4px; }
+
+      /* Risk table */
+      #risk-table-container {
+        max-height: 180px;
+        overflow-y: auto;
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 6px;
+      }
+      #risk-table-container::-webkit-scrollbar { width: 3px; }
+      #risk-table-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+      #riskTable {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      #riskTable th {
+        position: sticky;
+        top: 0;
+        background: rgba(8, 10, 18, 0.97);
+        color: #475569;
+        text-align: left;
+        padding: 5px 6px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        white-space: nowrap;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      #riskTable td {
+        padding: 5px 6px;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 85px;
+        color: #cbd5e1;
+      }
+      #riskTable tbody tr { cursor: pointer; transition: background 0.1s; }
+      #riskTable tbody tr:hover { background: rgba(255,255,255,0.05); }
+      #riskTable tbody tr:last-child td { border-bottom: none; }
+
+      /* Row severity left border */
+      #riskTable tbody tr.sev-critical { border-left: 3px solid #ef4444; }
+      #riskTable tbody tr.sev-high     { border-left: 3px solid #f97316; }
+      #riskTable tbody tr.sev-medium   { border-left: 3px solid #eab308; }
+      #riskTable tbody tr.sev-low      { border-left: 3px solid #84cc16; }
+
+      /* Severity badge pills */
+      .sev-badge {
+        display: inline-block;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+      .badge-critical { background: rgba(239,68,68,0.15);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.35); }
+      .badge-high     { background: rgba(249,115,22,0.15); color: #fdba74; border: 1px solid rgba(249,115,22,0.35); }
+      .badge-medium   { background: rgba(234,179,8,0.15);  color: #fde047; border: 1px solid rgba(234,179,8,0.35); }
+      .badge-low      { background: rgba(132,204,22,0.15); color: #bef264; border: 1px solid rgba(132,204,22,0.35); }
+
+      /* Footer */
+      #dashboard-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        flex-shrink: 0;
+      }
+      #lastUpdated { font-size: 10px; color: #334155; }
+      #refreshBtn {
+        font-size: 11px;
+        padding: 4px 11px;
+        background: rgba(56, 189, 248, 0.08);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      #refreshBtn:hover { background: rgba(56, 189, 248, 0.18); }
+      #refreshBtn:disabled { opacity: 0.45; cursor: not-allowed; }
     </style>
   </head>
   <body>
     <div id="cesiumContainer"></div>
+
+    <!-- Search -->
+    <div id="search-panel" class="panel">
+      <input id="search-input" type="text" placeholder="Search satellite name or NORAD ID…" autocomplete="off">
+      <ul id="search-results"></ul>
+    </div>
+
+    <!-- Info panel -->
+    <div id="info-panel" class="panel">
+      <h3>
+        <span id="info-name"></span>
+        <button id="info-close" title="Close">×</button>
+      </h3>
+      <div class="info-row"><span class="info-label">NORAD ID</span><span id="info-catalog-no"></span></div>
+      <div class="info-row"><span class="info-label">Intl. Desig.</span><span id="info-intl-designator"></span></div>
+      <div class="info-row"><span class="info-label">Epoch (UTC)</span><span id="info-epoch"></span></div>
+      <div class="info-row"><span class="info-label">Regime</span><span id="info-regime"></span></div>
+      <div class="info-row"><span class="info-label">Semi-major axis</span><span id="info-a-km"></span></div>
+      <div class="info-row"><span class="info-label">Eccentricity</span><span id="info-ecc"></span></div>
+      <div class="info-row"><span class="info-label">Inclination</span><span id="info-inc-deg"></span></div>
+      <div class="info-row"><span class="info-label">Period</span><span id="info-period"></span></div>
+      <p id="info-conj-heading">Conjunctions</p>
+      <ul id="info-conjunctions"></ul>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard-panel" class="panel">
+      <div id="dashboard-header">
+        <span id="dashboard-title">🛰 Risk Monitor</span>
+        <button id="dashboard-toggle" title="Collapse">−</button>
+      </div>
+
+      <div id="dashboard-body">
+        <!-- Stat cards -->
+        <div id="stat-cards">
+          <div class="stat-card stat-blue">
+            <div class="stat-value" id="stat-total-sats">—</div>
+            <div class="stat-label">Satellites</div>
+          </div>
+          <div class="stat-card stat-orange">
+            <div class="stat-value" id="stat-conjunctions">—</div>
+            <div class="stat-label">Conjunctions</div>
+          </div>
+          <div class="stat-card stat-red">
+            <div class="stat-value" id="stat-closest">—</div>
+            <div class="stat-label">Closest (km)</div>
+          </div>
+        </div>
+
+        <!-- Regime chart -->
+        <div class="section-header">
+          <span class="section-dot" style="background:#38bdf8"></span>
+          Orbital Distribution
+        </div>
+        <div id="regime-chart-container">
+          <canvas id="regimeChart"></canvas>
+        </div>
+
+        <!-- Approach chart -->
+        <div class="section-header">
+          <span class="section-dot" style="background:#f97316"></span>
+          Close Approaches by Distance
+        </div>
+        <div id="approach-chart-container">
+          <canvas id="approachChart"></canvas>
+        </div>
+
+        <!-- Risk table -->
+        <div class="section-header">
+          <span class="section-dot" style="background:#ef4444"></span>
+          Risk Ranking
+        </div>
+        <div id="risk-table-container">
+          <table id="riskTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Sat A</th>
+                <th>Sat B</th>
+                <th>Miss (km)</th>
+                <th>Vel (km/s)</th>
+                <th>TCA (UTC)</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div id="dashboard-footer">
+          <span id="lastUpdated"></span>
+          <button id="refreshBtn">⟳ Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.getElementById('dashboard-toggle');
+        const body = document.getElementById('dashboard-body');
+        if (toggle && body) {
+          toggle.addEventListener('click', () => {
+            const collapsed = body.style.display === 'none';
+            body.style.display = collapsed ? '' : 'none';
+            toggle.textContent = collapsed ? '−' : '+';
+          });
+        }
+      });
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -8,7 +8,30 @@ const __dirname = dirname(__filename);
 
 // Mock Cesium so tests don't bundle the 50MB library in jsdom.
 // Actual Cesium bundling is verified by `npm run build` (Outcome 2).
-vi.mock("cesium", () => ({ VERSION: "1.x-mock" }));
+// Stubs must cover all symbols referenced at cesiumView.js module-load time.
+vi.mock("cesium", () => {
+  const colour = (name) => ({ _name: name });
+  return {
+    VERSION: "1.x-mock",
+    Color: {
+      YELLOW: colour("YELLOW"),
+      GREEN: colour("GREEN"),
+      CYAN: colour("CYAN"),
+      RED: colour("RED"),
+      WHITE: colour("WHITE"),
+    },
+    Cartesian3: { fromDegrees: () => ({}) },
+    Entity: vi.fn(),
+    PointGraphics: vi.fn(),
+    LabelGraphics: vi.fn(),
+    ScreenSpaceEventHandler: vi.fn(() => ({ setInputAction: vi.fn() })),
+    ScreenSpaceEventType: { MOUSE_MOVE: "MOUSE_MOVE" },
+    TileMapServiceImageryProvider: vi.fn(),
+    buildModuleUrl: (p) => p,
+    Viewer: vi.fn(() => ({ destroy: vi.fn() })),
+    Ion: {},
+  };
+});
 
 describe("S1.6 — Cesium Frontend Scaffold", () => {
   it("test_placeholder — Vitest is configured and runs", () => {

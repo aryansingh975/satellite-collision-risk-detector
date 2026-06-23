@@ -1,0 +1,42 @@
+services:
+  # ── Backend: FastAPI + uvicorn ──────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    # All runtime config comes from .env — no secrets in this file.
+    # Copy .env.example → .env and fill in real values before starting.
+    env_file:
+      - .env
+    volumes:
+      # Named volume keeps the SQLite DB and TLE cache across restarts.
+      - db_data:/app/data
+    environment:
+      # Override the local-dev default so the DB lands inside the volume.
+      DATABASE_URL: sqlite:////app/data/satellite_tracking.db
+      TLE_CACHE_DIR: /app/data/tle_cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ── Frontend: Vite build → nginx static serve ───────────────────────────────
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+# Named volume — persists SQLite + TLE cache between `docker compose down/up`.
+volumes:
+  db_data:
