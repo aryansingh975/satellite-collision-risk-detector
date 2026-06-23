@@ -1,0 +1,35 @@
+# Version control
+.git/
+.gitignore
+
+# Python runtime artefacts
+.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+
+# Secrets and local config — never bake these into an image
+.env
+satellite_tracking.db
+
+# TLE cache — regenerated at runtime inside the container
+data/
+.tle_cache/
+
+# Frontend build dependencies — built inside the frontend Docker stage
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Docs and specs — not needed at runtime
+specs/
+docs/
+
+# Misc dev files
+*.log
+.DS_Store
+Thumbs.db

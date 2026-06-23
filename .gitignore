@@ -5,3 +5,18 @@ __pycache__/
 *.pyc
 .env
 node_modules/
+
+# Databases
+*.db
+*.sqlite
+
+# TLE cache & runtime data
+data/
+
+# Build / test artefacts
+.vite/
+test-results/
+dist/
+
+# Frontend local env
+frontend/.env

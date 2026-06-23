@@ -163,9 +163,9 @@ Sieve → spatial screen → TCA refinement → risk scoring. Built on a brute-f
 | S5.1 | `specs/spec-S5.1-apogee-perigee-sieve/` | S4.5, S4.6 | `backend/app/services/conjunctions.py` | Apogee/perigee sieve | `reject if perigee_A−apogee_B > pad OR perigee_B−apogee_A > pad`. Default pad ~30 km. O(n) per object; kills the vast majority of pairs (e.g. GEO–LEO) | done |
 | S5.2 | `specs/spec-S5.2-window-sampling/` | S4.3, S5.1 | `backend/app/services/conjunctions.py` | Position sampling over window | Propagate surviving candidates over SCREEN_WINDOW_HOURS at SCREEN_STEP_SECONDS → positions[t]. Vectorized | done |
 | S5.3 | `specs/spec-S5.3-ckdtree-screen/` | S5.2 | `backend/app/services/conjunctions.py` | cKDTree spatial screen | Per timestep: `cKDTree(P).query_pairs(r=COARSE_RADIUS_KM)`. Coarse radius generous to bridge fast crossings between samples. Output flagged (pair, t_idx) | done |
-| S5.4 | `specs/spec-S5.4-tca-refinement/` | S5.3 | `backend/app/services/conjunctions.py` | TCA refinement & miss distance | Dense re-propagation (~1s) bracketed around coarse min; detect range-rate `r_rel·v_rel` zero-crossing → TCA, miss_km, rel_vel_kms | spec-written |
-| S5.5 | `specs/spec-S5.5-risk-scoring/` | S5.4, S2.3 | `backend/app/services/conjunctions.py` | Risk scoring + persist | Keep events with miss ≤ RISK_THRESHOLD_KM (5 km, matches SOCRATES). Rank by miss (tie-break rel_vel). Idempotent persist to Conjunction table | pending |
-| S5.6 | `specs/spec-S5.6-bruteforce-oracle/` | S5.3 | `backend/tests/services/test_conjunctions.py` | Brute-force correctness oracle | Small-set all-pairs distance check that S5.3's cKDTree result equals brute force. The trust anchor for the whole engine | pending |
+| S5.4 | `specs/spec-S5.4-tca-refinement/` | S5.3 | `backend/app/services/conjunctions.py` | TCA refinement & miss distance | Dense re-propagation (~1s) bracketed around coarse min; detect range-rate `r_rel·v_rel` zero-crossing → TCA, miss_km, rel_vel_kms | done |
+| S5.5 | `specs/spec-S5.5-risk-scoring/` | S5.4, S2.3 | `backend/app/services/conjunctions.py` | Risk scoring + persist | Keep events with miss ≤ RISK_THRESHOLD_KM (5 km, matches SOCRATES). Rank by miss (tie-break rel_vel). Idempotent persist to Conjunction table | done |
+| S5.6 | `specs/spec-S5.6-bruteforce-oracle/` | S5.3 | `backend/tests/services/test_conjunctions.py` | Brute-force correctness oracle | Small-set all-pairs distance check that S5.3's cKDTree result equals brute force. The trust anchor for the whole engine | done |
 
 ---
 
@@ -175,12 +175,12 @@ All REST endpoints over the frozen contract + the scheduled refresh job. **Owner
 
 | Spec | Spec Location | Depends On | Location | Feature | Notes | Status |
 |------|--------------|-----------|----------|---------|-------|--------|
-| S6.1 | `specs/spec-S6.1-satellites-list-detail/` | S2.4, S2.2 | `backend/app/api/satellites.py` | Satellites list + detail | `GET /satellites` (filter by group/regime, paginated), `GET /satellites/{id}` (metadata + elements + regime). 404 on unknown | pending |
-| S6.2 | `specs/spec-S6.2-positions-endpoint/` | S4.2, S4.4 | `backend/app/api/satellites.py` | Positions endpoint | `GET /satellites/{id}/positions?start=&stop=&step=` → sampled lat/lon/alt track for Cesium SampledPositionProperty | pending |
-| S6.3 | `specs/spec-S6.3-bulk-positions/` | S4.3, S4.4 | `backend/app/api/satellites.py` | Bulk positions / CZML | `GET /positions` (or `/czml`) for many sats in one call — avoids N requests from the frontend. Vectorized via S4.3 | pending |
-| S6.4 | `specs/spec-S6.4-conjunctions-endpoint/` | S5.5, S2.4 | `backend/app/api/conjunctions.py` | Conjunctions endpoints | `GET /conjunctions?threshold=&window=`, `GET /conjunctions/{pair_id}`. Empty result → `[]`, not error | pending |
-| S6.5 | `specs/spec-S6.5-stats-endpoint/` | S4.6, S5.5 | `backend/app/api/stats.py` | Stats endpoints | `GET /stats/orbital-regions` (counts per regime, sum to total), `GET /stats/risk-ranking` (top-N by miss_km) | pending |
-| S6.6 | `specs/spec-S6.6-scheduler/` | S3.2, S5.5 | `backend/app/services/scheduler.py` | Scheduled refresh | APScheduler job every 2h: re-ingest TLEs (respecting cadence) + re-run screen + persist. Failures isolated, don't crash app | pending |
+| S6.1 | `specs/spec-S6.1-satellites-list-detail/` | S2.4, S2.2 | `backend/app/api/satellites.py` | Satellites list + detail | `GET /satellites` (filter by group/regime, paginated), `GET /satellites/{id}` (metadata + elements + regime). 404 on unknown | done |
+| S6.2 | `specs/spec-S6.2-positions-endpoint/` | S4.2, S4.4 | `backend/app/api/satellites.py` | Positions endpoint | `GET /satellites/{id}/positions?start=&stop=&step=` → sampled lat/lon/alt track for Cesium SampledPositionProperty | done |
+| S6.3 | `specs/spec-S6.3-bulk-positions/` | S4.3, S4.4 | `backend/app/api/satellites.py` | Bulk positions / CZML | `GET /positions` (or `/czml`) for many sats in one call — avoids N requests from the frontend. Vectorized via S4.3 | done |
+| S6.4 | `specs/spec-S6.4-conjunctions-endpoint/` | S5.5, S2.4 | `backend/app/api/conjunctions.py` | Conjunctions endpoints | `GET /conjunctions?threshold=&window=`, `GET /conjunctions/{pair_id}`. Empty result → `[]`, not error | done |
+| S6.5 | `specs/spec-S6.5-stats-endpoint/` | S4.6, S5.5 | `backend/app/api/stats.py` | Stats endpoints | `GET /stats/orbital-regions` (counts per regime, sum to total), `GET /stats/risk-ranking` (top-N by miss_km) | done |
+| S6.6 | `specs/spec-S6.6-scheduler/` | S3.2, S5.5 | `backend/app/services/scheduler.py` | Scheduled refresh | APScheduler job every 2h: re-ingest TLEs (respecting cadence) + re-run screen + persist. Failures isolated, don't crash app | done |
 
 ---
 
@@ -190,11 +190,11 @@ Cesium globe, API client, satellite entities, time-animated tracks. Built agains
 
 | Spec | Spec Location | Depends On | Location | Feature | Notes | Status |
 |------|--------------|-----------|----------|---------|-------|--------|
-| S7.1 | `specs/spec-S7.1-cesium-bootstrap/` | S1.6 | `frontend/src/cesiumView.js` | Cesium globe bootstrap | `new Cesium.Viewer` with **offline Natural Earth imagery** (`TileMapServiceImageryProvider` from `Assets/Textures/NaturalEarthII`); `baseLayerPicker:false`, `geocoder:false`. No ion token needed | pending |
-| S7.2 | `specs/spec-S7.2-api-client/` | S2.5 | `frontend/src/api.js` | API client layer | Typed fetch wrappers for every endpoint; base URL switch between mock and live; clean error/empty handling | pending |
-| S7.3 | `specs/spec-S7.3-satellite-entities/` | S7.1, S7.2 | `frontend/src/cesiumView.js` | Satellite entities | Render points from `/satellites`, coloured by regime (LEO/MEO/GEO/HEO). Label on hover | pending |
-| S7.4 | `specs/spec-S7.4-animation/` | S7.3, S6.3 | `frontend/src/cesiumView.js` | SampledPositionProperty + clock animation | Build per-sat `SampledPositionProperty` from `/positions`; animate on Cesium clock (multiplier, `LOOP_STOP`); `timeline.zoomTo(start,stop)` | pending |
-| S7.5 | `specs/spec-S7.5-orbit-path/` | S7.4 | `frontend/src/cesiumView.js` | Orbit path graphic | `path` graphic for selected satellite's trajectory; toggle on/off | pending |
+| S7.1 | `specs/spec-S7.1-cesium-bootstrap/` | S1.6 | `frontend/src/cesiumView.js` | Cesium globe bootstrap | `new Cesium.Viewer` with **offline Natural Earth imagery** (`TileMapServiceImageryProvider` from `Assets/Textures/NaturalEarthII`); `baseLayerPicker:false`, `geocoder:false`. No ion token needed | done |
+| S7.2 | `specs/spec-S7.2-api-client/` | S2.5 | `frontend/src/api.js` | API client layer | Typed fetch wrappers for every endpoint; base URL switch between mock and live; clean error/empty handling | done |
+| S7.3 | `specs/spec-S7.3-satellite-entities/` | S7.1, S7.2 | `frontend/src/cesiumView.js` | Satellite entities | Render points from `/satellites`, coloured by regime (LEO/MEO/GEO/HEO). Label on hover | done |
+| S7.4 | `specs/spec-S7.4-animation/` | S7.3, S6.3 | `frontend/src/cesiumView.js` | SampledPositionProperty + clock animation | Build per-sat `SampledPositionProperty` from `/positions`; animate on Cesium clock (multiplier, `LOOP_STOP`); `timeline.zoomTo(start,stop)` | done |
+| S7.5 | `specs/spec-S7.5-orbit-path/` | S7.4 | `frontend/src/cesiumView.js` | Orbit path graphic | `path` graphic for selected satellite's trajectory; toggle on/off | done |
 
 ---
 
@@ -204,10 +204,10 @@ Risk polylines between at-risk pairs, search, and the info panel. **Owner: S2.**
 
 | Spec | Spec Location | Depends On | Location | Feature | Notes | Status |
 |------|--------------|-----------|----------|---------|-------|--------|
-| S8.1 | `specs/spec-S8.1-risk-polylines/` | S7.4, S6.4 | `frontend/src/risk.js` | Risk-pair polylines | Draw a polyline between each at-risk pair from `/conjunctions`, coloured by severity (red ≤ threshold). Description shows TCA / miss / rel-vel | pending |
-| S8.2 | `specs/spec-S8.2-polyline-tracking/` | S8.1 | `frontend/src/risk.js` | Polyline tracking | `CallbackProperty` keeps polyline endpoints attached to the two moving entities as the clock advances; rebuild on data refresh | pending |
-| S8.3 | `specs/spec-S8.3-search/` | S7.3 | `frontend/src/search.js` | Search & select | Filter entities by name / NORAD id; selecting calls `viewer.flyTo(entity)` + sets `selectedEntity`. Empty/no-match handled | pending |
-| S8.4 | `specs/spec-S8.4-info-panel/` | S7.3, S6.1 | `frontend/src/infoPanel.js` | Info panel | Selected satellite's orbital details (regime, a, e, i, period) + any conjunctions it's involved in | pending |
+| S8.1 | `specs/spec-S8.1-risk-polylines/` | S7.4, S6.4 | `frontend/src/risk.js` | Risk-pair polylines | Draw a polyline between each at-risk pair from `/conjunctions`, coloured by severity (red ≤ threshold). Description shows TCA / miss / rel-vel | done |
+| S8.2 | `specs/spec-S8.2-polyline-tracking/` | S8.1 | `frontend/src/risk.js` | Polyline tracking | `CallbackProperty` keeps polyline endpoints attached to the two moving entities as the clock advances; rebuild on data refresh | done |
+| S8.3 | `specs/spec-S8.3-search/` | S7.3 | `frontend/src/search.js` | Search & select | Filter entities by name / NORAD id; selecting calls `viewer.flyTo(entity)` + sets `selectedEntity`. Empty/no-match handled | done |
+| S8.4 | `specs/spec-S8.4-info-panel/` | S7.3, S6.1 | `frontend/src/infoPanel.js` | Info panel | Selected satellite's orbital details (regime, a, e, i, period) + any conjunctions it's involved in | done |
 
 ---
 
@@ -217,10 +217,10 @@ Chart.js summaries of congestion and risk. **Owner: S2.**
 
 | Spec | Spec Location | Depends On | Location | Feature | Notes | Status |
 |------|--------------|-----------|----------|---------|-------|--------|
-| S9.1 | `specs/spec-S9.1-regime-chart/` | S7.2, S6.5 | `frontend/src/dashboard.js` | Regime distribution chart | Chart.js doughnut/bar from `/stats/orbital-regions`. Data sums to total satellite count | pending |
-| S9.2 | `specs/spec-S9.2-approach-chart/` | S7.2, S6.4 | `frontend/src/dashboard.js` | Close-approach count chart | Count of detected conjunctions (optionally bucketed by miss-distance band) | pending |
-| S9.3 | `specs/spec-S9.3-risk-table/` | S7.2, S6.5 | `frontend/src/dashboard.js` | Risk ranking table | Top-N riskiest pairs from `/stats/risk-ranking`, sorted by miss_km; click row → select pair on globe | pending |
-| S9.4 | `specs/spec-S9.4-dashboard-refresh/` | S9.1, S9.2, S9.3 | `frontend/src/dashboard.js` | Dashboard refresh wiring | Re-fetch + redraw all panels when backend data refreshes (poll or manual button) | pending |
+| S9.1 | `specs/spec-S9.1-regime-chart/` | S7.2, S6.5 | `frontend/src/dashboard.js` | Regime distribution chart | Chart.js doughnut/bar from `/stats/orbital-regions`. Data sums to total satellite count | done |
+| S9.2 | `specs/spec-S9.2-approach-chart/` | S7.2, S6.4 | `frontend/src/dashboard.js` | Close-approach count chart | Count of detected conjunctions (optionally bucketed by miss-distance band) | done |
+| S9.3 | `specs/spec-S9.3-risk-table/` | S7.2, S6.5 | `frontend/src/dashboard.js` | Risk ranking table | Top-N riskiest pairs from `/stats/risk-ranking`, sorted by miss_km; click row → select pair on globe | done |
+| S9.4 | `specs/spec-S9.4-dashboard-refresh/` | S9.1, S9.2, S9.3 | `frontend/src/dashboard.js` | Dashboard refresh wiring | Re-fetch + redraw all panels when backend data refreshes (poll or manual button) | done |
 
 ---
 
@@ -229,12 +229,13 @@ Chart.js summaries of congestion and risk. **Owner: S2.**
 Seed data, wire frontend to live backend, end-to-end test, optional containerization + hosting. **Owner: Both.**
 
 | Spec | Spec Location | Depends On | Location | Feature | Notes | Status |
+
 |------|--------------|-----------|----------|---------|-------|--------|
-| S10.1 | `specs/spec-S10.1-seed-script/` | S3.5, S5.5 | `backend/scripts/seed.py` | Seed script | `make seed`: initial CelesTrak fetch → parse → persist → run screen → persist conjunctions. Idempotent | pending |
-| S10.2 | `specs/spec-S10.2-live-wiring/` | S6.1, S6.4, S6.5, S7.2 | `frontend/src/api.js` | Frontend live wiring | Switch api.js base URL to live backend; verify CORS; replace mock data path | pending |
-| S10.3 | `specs/spec-S10.3-e2e-test/` | S10.2, S9.4 | `tests/e2e/` (Playwright) | End-to-end test | Start backend + frontend; satellites render from live data; a known conjunction shows a red link; dashboard counts match API; smoke every endpoint | pending |
-| S10.4 | `specs/spec-S10.4-docker/` | S1.1 | `Dockerfile`, `docker-compose.yml` | Containerization (optional) | Multi-stage Dockerfile for backend; compose serving backend + static frontend. Build context = repo root | pending |
-| S10.5 | `specs/spec-S10.5-deploy/` | S10.4, S10.1 | Host (Render / Fly.io / EC2) | Deployment (optional) | Deploy container, run seed, expose API + frontend. Capture the public URL for the README | pending |
+| S10.1 | `specs/spec-S10.1-seed-script/` | S3.5, S5.5 | `backend/scripts/seed.py` | Seed script | `make seed`: initial CelesTrak fetch → parse → persist → run screen → persist conjunctions. Idempotent | done |
+| S10.2 | `specs/spec-S10.2-live-wiring/` | S6.1, S6.4, S6.5, S7.2 | `frontend/src/api.js` | Frontend live wiring | Switch api.js base URL to live backend; verify CORS; replace mock data path | done |
+| S10.3 | `specs/spec-S10.3-e2e-test/` | S10.2, S9.4 | `tests/e2e/` (Playwright) | End-to-end test | Start backend + frontend; satellites render from live data; a known conjunction shows a red link; dashboard counts match API; smoke every endpoint | done |
+| S10.4 | `specs/spec-S10.4-docker/` | S1.1 | `Dockerfile`, `docker-compose.yml` | Containerization (optional) | Multi-stage Dockerfile for backend; compose serving backend + static frontend. Build context = repo root | done |
+| S10.5 | `specs/spec-S10.5-deploy/` | S10.4, S10.1 | Host (Render / Fly.io / EC2) | Deployment (optional) | Deploy container, run seed, expose API + frontend. Capture the public URL for the README | done |
 
 ---
 
@@ -244,11 +245,11 @@ Validation, the required README, architecture, screenshots, and GitHub collabora
 
 | Spec | Spec Location | Depends On | Location | Feature | Notes | Status |
 |------|--------------|-----------|----------|---------|-------|--------|
-| S11.1 | `specs/spec-S11.1-readme/` | S10.3 | `README.md` | README | Problem statement; data sources + CelesTrak attribution + 2-hour caching note; architecture; setup instructions; API reference; screenshots | pending |
-| S11.2 | `specs/spec-S11.2-architecture-doc/` | S10.3 | `docs/architecture.md` | Architecture diagram | System diagram: ingestion → parse → propagate → screen → API → Cesium/dashboard. Frame note (TEME for math, geodetic for display) | pending |
-| S11.3 | `specs/spec-S11.3-screenshots/` | S10.3 | `docs/screenshots/` | Screenshots / GIFs | Globe with animated satellites + red risk links; dashboard panels. Embedded in README | pending |
-| S11.4 | `specs/spec-S11.4-github-collab/` | S1.1 | `.github/`, repo settings | GitHub collaboration | Protected `main`; `spec/SX.Y-name` branches; PR-per-spec with review; meaningful commits (`SX.Y(impl): …`); both students contribute | pending |
-| S11.5 | `specs/spec-S11.5-demo-acceptance/` | S11.1, S11.3 | `docs/acceptance.md` | Demo & acceptance | Evaluation-criteria checklist: creativity, technical implementation, web-app quality, GitHub usage, documentation clarity. All specs `done` | pending |
+| S11.1 | `specs/spec-S11.1-readme/` | S10.3 | `README.md` | README | Problem statement; data sources + CelesTrak attribution + 2-hour caching note; architecture; setup instructions; API reference; screenshots | done |
+| S11.2 | `specs/spec-S11.2-architecture-doc/` | S10.3 | `docs/architecture.md` | Architecture diagram | System diagram: ingestion → parse → propagate → screen → API → Cesium/dashboard. Frame note (TEME for math, geodetic for display) | done |
+| S11.3 | `specs/spec-S11.3-screenshots/` | S10.3 | `docs/screenshots/` | Screenshots / GIFs | Globe with animated satellites + red risk links; dashboard panels. Embedded in README | done |
+| S11.4 | `specs/spec-S11.4-github-collab/` | S1.1 | `.github/`, repo settings | GitHub collaboration | Protected `main`; `spec/SX.Y-name` branches; PR-per-spec with review; meaningful commits (`SX.Y(impl): …`); both students contribute | done |
+| S11.5 | `specs/spec-S11.5-demo-acceptance/` | S11.1, S11.3 | `docs/acceptance.md` | Demo & acceptance | Evaluation-criteria checklist: creativity, technical implementation, web-app quality, GitHub usage, documentation clarity. All specs `done` | done |
 
 ---
 
@@ -281,35 +282,35 @@ Validation, the required README, architecture, screenshots, and GitHub collabora
 | S5.1 | Conjunction Engine | `backend/app/services/conjunctions.py` | Apogee/perigee sieve | `specs/spec-S5.1-apogee-perigee-sieve/` | done |
 | S5.2 | Conjunction Engine | `backend/app/services/conjunctions.py` | Position sampling over window | `specs/spec-S5.2-window-sampling/` | done |
 | S5.3 | Conjunction Engine | `backend/app/services/conjunctions.py` | cKDTree spatial screen | `specs/spec-S5.3-ckdtree-screen/` | done |
-| S5.4 | Conjunction Engine | `backend/app/services/conjunctions.py` | TCA refinement & miss distance | `specs/spec-S5.4-tca-refinement/` | spec-written |
-| S5.5 | Conjunction Engine | `backend/app/services/conjunctions.py` | Risk scoring + persist | `specs/spec-S5.5-risk-scoring/` | pending |
-| S5.6 | Conjunction Engine | `backend/tests/services/test_conjunctions.py` | Brute-force correctness oracle | `specs/spec-S5.6-bruteforce-oracle/` | pending |
-| S6.1 | Backend API | `backend/app/api/satellites.py` | Satellites list + detail | `specs/spec-S6.1-satellites-list-detail/` | pending |
-| S6.2 | Backend API | `backend/app/api/satellites.py` | Positions endpoint | `specs/spec-S6.2-positions-endpoint/` | pending |
-| S6.3 | Backend API | `backend/app/api/satellites.py` | Bulk positions / CZML | `specs/spec-S6.3-bulk-positions/` | pending |
-| S6.4 | Backend API | `backend/app/api/conjunctions.py` | Conjunctions endpoints | `specs/spec-S6.4-conjunctions-endpoint/` | pending |
-| S6.5 | Backend API | `backend/app/api/stats.py` | Stats endpoints | `specs/spec-S6.5-stats-endpoint/` | pending |
-| S6.6 | Backend API | `backend/app/services/scheduler.py` | Scheduled refresh | `specs/spec-S6.6-scheduler/` | pending |
-| S7.1 | Frontend Globe | `frontend/src/cesiumView.js` | Cesium globe bootstrap | `specs/spec-S7.1-cesium-bootstrap/` | pending |
-| S7.2 | Frontend Globe | `frontend/src/api.js` | API client layer | `specs/spec-S7.2-api-client/` | pending |
-| S7.3 | Frontend Globe | `frontend/src/cesiumView.js` | Satellite entities | `specs/spec-S7.3-satellite-entities/` | pending |
-| S7.4 | Frontend Globe | `frontend/src/cesiumView.js` | SampledPositionProperty + animation | `specs/spec-S7.4-animation/` | pending |
-| S7.5 | Frontend Globe | `frontend/src/cesiumView.js` | Orbit path graphic | `specs/spec-S7.5-orbit-path/` | pending |
-| S8.1 | Risk Visualization & Interaction | `frontend/src/risk.js` | Risk-pair polylines | `specs/spec-S8.1-risk-polylines/` | pending |
-| S8.2 | Risk Visualization & Interaction | `frontend/src/risk.js` | Polyline tracking | `specs/spec-S8.2-polyline-tracking/` | pending |
-| S8.3 | Risk Visualization & Interaction | `frontend/src/search.js` | Search & select | `specs/spec-S8.3-search/` | pending |
-| S8.4 | Risk Visualization & Interaction | `frontend/src/infoPanel.js` | Info panel | `specs/spec-S8.4-info-panel/` | pending |
-| S9.1 | Insights Dashboard | `frontend/src/dashboard.js` | Regime distribution chart | `specs/spec-S9.1-regime-chart/` | pending |
-| S9.2 | Insights Dashboard | `frontend/src/dashboard.js` | Close-approach count chart | `specs/spec-S9.2-approach-chart/` | pending |
-| S9.3 | Insights Dashboard | `frontend/src/dashboard.js` | Risk ranking table | `specs/spec-S9.3-risk-table/` | pending |
-| S9.4 | Insights Dashboard | `frontend/src/dashboard.js` | Dashboard refresh wiring | `specs/spec-S9.4-dashboard-refresh/` | pending |
-| S10.1 | Integration & Deployment | `backend/scripts/seed.py` | Seed script | `specs/spec-S10.1-seed-script/` | pending |
-| S10.2 | Integration & Deployment | `frontend/src/api.js` | Frontend live wiring | `specs/spec-S10.2-live-wiring/` | pending |
-| S10.3 | Integration & Deployment | `tests/e2e/` | End-to-end test | `specs/spec-S10.3-e2e-test/` | pending |
-| S10.4 | Integration & Deployment | `Dockerfile`, `docker-compose.yml` | Containerization | `specs/spec-S10.4-docker/` | pending |
-| S10.5 | Integration & Deployment | Host (Render / Fly.io / EC2) | Deployment | `specs/spec-S10.5-deploy/` | pending |
-| S11.1 | QA & Documentation | `README.md` | README | `specs/spec-S11.1-readme/` | pending |
-| S11.2 | QA & Documentation | `docs/architecture.md` | Architecture diagram | `specs/spec-S11.2-architecture-doc/` | pending |
-| S11.3 | QA & Documentation | `docs/screenshots/` | Screenshots / GIFs | `specs/spec-S11.3-screenshots/` | pending |
-| S11.4 | QA & Documentation | `.github/`, repo settings | GitHub collaboration | `specs/spec-S11.4-github-collab/` | pending |
-| S11.5 | QA & Documentation | `docs/acceptance.md` | Demo & acceptance | `specs/spec-S11.5-demo-acceptance/` | pending |
+| S5.4 | Conjunction Engine | `backend/app/services/conjunctions.py` | TCA refinement & miss distance | `specs/spec-S5.4-tca-refinement/` | done |
+| S5.5 | Conjunction Engine | `backend/app/services/conjunctions.py` | Risk scoring + persist | `specs/spec-S5.5-risk-scoring/` | done |
+| S5.6 | Conjunction Engine | `backend/tests/services/test_conjunctions.py` | Brute-force correctness oracle | `specs/spec-S5.6-bruteforce-oracle/` | done |
+| S6.1 | Backend API | `backend/app/api/satellites.py` | Satellites list + detail | `specs/spec-S6.1-satellites-list-detail/` | done |
+| S6.2 | Backend API | `backend/app/api/satellites.py` | Positions endpoint | `specs/spec-S6.2-positions-endpoint/` | done |
+| S6.3 | Backend API | `backend/app/api/satellites.py` | Bulk positions / CZML | `specs/spec-S6.3-bulk-positions/` | done |
+| S6.4 | Backend API | `backend/app/api/conjunctions.py` | Conjunctions endpoints | `specs/spec-S6.4-conjunctions-endpoint/` | done |
+| S6.5 | Backend API | `backend/app/api/stats.py` | Stats endpoints | `specs/spec-S6.5-stats-endpoint/` | done |
+| S6.6 | Backend API | `backend/app/services/scheduler.py` | Scheduled refresh | `specs/spec-S6.6-scheduler/` | done |
+| S7.1 | Frontend Globe | `frontend/src/cesiumView.js` | Cesium globe bootstrap | `specs/spec-S7.1-cesium-bootstrap/` | done |
+| S7.2 | Frontend Globe | `frontend/src/api.js` | API client layer | `specs/spec-S7.2-api-client/` | done |
+| S7.3 | Frontend Globe | `frontend/src/cesiumView.js` | Satellite entities | `specs/spec-S7.3-satellite-entities/` | done |
+| S7.4 | Frontend Globe | `frontend/src/cesiumView.js` | SampledPositionProperty + animation | `specs/spec-S7.4-animation/` | done |
+| S7.5 | Frontend Globe | `frontend/src/cesiumView.js` | Orbit path graphic | `specs/spec-S7.5-orbit-path/` | done |
+| S8.1 | Risk Visualization & Interaction | `frontend/src/risk.js` | Risk-pair polylines | `specs/spec-S8.1-risk-polylines/` | done |
+| S8.2 | Risk Visualization & Interaction | `frontend/src/risk.js` | Polyline tracking | `specs/spec-S8.2-polyline-tracking/` | done |
+| S8.3 | Risk Visualization & Interaction | `frontend/src/search.js` | Search & select | `specs/spec-S8.3-search/` | done |
+| S8.4 | Risk Visualization & Interaction | `frontend/src/infoPanel.js` | Info panel | `specs/spec-S8.4-info-panel/` | done |
+| S9.1 | Insights Dashboard | `frontend/src/dashboard.js` | Regime distribution chart | `specs/spec-S9.1-regime-chart/` | done |
+| S9.2 | Insights Dashboard | `frontend/src/dashboard.js` | Close-approach count chart | `specs/spec-S9.2-approach-chart/` | done |
+| S9.3 | Insights Dashboard | `frontend/src/dashboard.js` | Risk ranking table | `specs/spec-S9.3-risk-table/` | done |
+| S9.4 | Insights Dashboard | `frontend/src/dashboard.js` | Dashboard refresh wiring | `specs/spec-S9.4-dashboard-refresh/` | done |
+| S10.1 | Integration & Deployment | `backend/scripts/seed.py` | Seed script | `specs/spec-S10.1-seed-script/` | done |
+| S10.2 | Integration & Deployment | `frontend/src/api.js` | Frontend live wiring | `specs/spec-S10.2-live-wiring/` | done |
+| S10.3 | Integration & Deployment | `tests/e2e/` | End-to-end test | `specs/spec-S10.3-e2e-test/` | done |
+| S10.4 | Integration & Deployment | `Dockerfile`, `docker-compose.yml` | Containerization | `specs/spec-S10.4-docker/` | done |
+| S10.5 | Integration & Deployment | Host (Render / Fly.io / EC2) | Deployment | `specs/spec-S10.5-deploy/` | done |
+| S11.1 | QA & Documentation | `README.md` | README | `specs/spec-S11.1-readme/` | done |
+| S11.2 | QA & Documentation | `docs/architecture.md` | Architecture diagram | `specs/spec-S11.2-architecture-doc/` | done |
+| S11.3 | QA & Documentation | `docs/screenshots/` | Screenshots / GIFs | `specs/spec-S11.3-screenshots/` | done |
+| S11.4 | QA & Documentation | `.github/`, repo settings | GitHub collaboration | `specs/spec-S11.4-github-collab/` | done |
+| S11.5 | QA & Documentation | `docs/acceptance.md` | Demo & acceptance | `specs/spec-S11.5-demo-acceptance/` | done |

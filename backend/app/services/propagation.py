@@ -166,27 +166,37 @@ def teme_to_geodetic(
         detail = SGP4_ERRORS.get(sat.model.error, "unknown error")
         raise ValueError(f"SGP4 init error {sat.model.error} ({detail}) for sat {catalog}")
 
-    results: list[dict[str, float | None]] = []
-    for t in times:
-        ts_t = _TS.utc(
-            t.year,
-            t.month,
-            t.day,
-            t.hour,
-            t.minute,
-            t.second + t.microsecond / 1_000_000.0,
+    # Vectorized over time — one batch skyfield call instead of N individual calls.
+    years  = np.array([t.year   for t in times], dtype=np.int32)
+    months = np.array([t.month  for t in times], dtype=np.int32)
+    days   = np.array([t.day    for t in times], dtype=np.int32)
+    hours  = np.array([t.hour   for t in times], dtype=np.int32)
+    mins   = np.array([t.minute for t in times], dtype=np.int32)
+    secs   = np.array([t.second + t.microsecond / 1_000_000.0 for t in times])
+
+    ts_times = _TS.utc(years, months, days, hours, mins, secs)
+    geocentric = sat.at(ts_times)
+
+    pos_km = geocentric.position.km  # shape (3, N)
+    bad_mask = np.atleast_1d(np.any(np.isnan(pos_km), axis=0))
+    if np.any(bad_mask):
+        n_bad = int(bad_mask.sum())
+        logger.warning(
+            "teme_to_geodetic: {} NaN timestep(s) for sat {} — skipped",
+            n_bad,
+            sat.model.satnum,
         )
-        geocentric = sat.at(ts_t)
-        pos_km = geocentric.position.km
-        if np.any(np.isnan(pos_km)):
-            logger.warning(
-                "teme_to_geodetic: NaN position for sat {} at {} — timestep skipped",
-                sat.model.satnum,
-                t,
-            )
+
+    subpoints = wgs84.subpoint(geocentric)
+    lats = np.atleast_1d(np.asarray(subpoints.latitude.degrees, dtype=np.float64))
+    lons = np.atleast_1d(np.asarray(subpoints.longitude.degrees, dtype=np.float64))
+    alts = np.atleast_1d(np.asarray(subpoints.elevation.km, dtype=np.float64))
+
+    results: list[dict[str, float | None]] = []
+    for idx, t in enumerate(times):
+        if bad_mask[idx]:
             continue
-        subpoint = wgs84.subpoint(geocentric)
-        alt = float(subpoint.elevation.km)
+        alt = float(alts[idx])
         if alt < 0.0:
             logger.debug(
                 "teme_to_geodetic: negative altitude {:.2f} km for sat {} at {} — included",
@@ -196,8 +206,8 @@ def teme_to_geodetic(
             )
         results.append(
             {
-                "lat": float(subpoint.latitude.degrees),
-                "lon": float(subpoint.longitude.degrees),
+                "lat": float(lats[idx]),
+                "lon": float(lons[idx]),
                 "alt_km": alt,
             }
         )

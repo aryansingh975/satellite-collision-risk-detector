@@ -13,7 +13,7 @@ install-dev: install
 # ── Backend ───────────────────────────────────────────────────────────────────
 
 local-dev:
-	.venv/Scripts/uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+	PYTHONPATH=backend .venv/Scripts/python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 dev: local-dev
 

@@ -1,5 +1,8 @@
 """CelesTrak GP API client and TLE ingestion pipeline."""
 
+import csv
+import io as _io
+import math
 import time
 from datetime import datetime
 from pathlib import Path
@@ -7,12 +10,50 @@ from pathlib import Path
 import httpx
 import tenacity
 from loguru import logger
+from sgp4.api import Satrec, WGS72, jday
+from sgp4.exporter import export_tle
 from sqlalchemy import func
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.models import Satellite
+from app.services.classification import classify_regime, derive_orbital_elements
+from app.services.tle_parser import TLEParseError, parse_tle
+
+
+def _csv_row_to_tle_lines(row: dict) -> tuple[str, str]:
+    """Construct TLE line1 and line2 from a CelesTrak GP CSV row.
+
+    CelesTrak's /NORAD/elements/gp.php CSV response contains orbital elements
+    directly (MEAN_MOTION, ECCENTRICITY, etc.) but no TLE_LINE1/TLE_LINE2 columns.
+    This function reconstructs TLE strings via sgp4init + export_tle so the rest
+    of the propagation pipeline can work unchanged.
+    """
+    catalog_no = int(row["NORAD_CAT_ID"])
+
+    epoch_str = row["EPOCH"]
+    epoch_dt = datetime.fromisoformat(epoch_str)
+    jd, fr = jday(epoch_dt.year, epoch_dt.month, epoch_dt.day,
+                   epoch_dt.hour, epoch_dt.minute,
+                   epoch_dt.second + epoch_dt.microsecond / 1e6)
+    epoch_days = (jd + fr) - 2433281.5
+
+    bstar = float(row["BSTAR"])
+    ndot = float(row["MEAN_MOTION_DOT"]) * 2 * math.pi / (1440 ** 2)
+    nddot = float(row["MEAN_MOTION_DDOT"]) * 2 * math.pi / (1440 ** 3)
+    ecco = float(row["ECCENTRICITY"])
+    argpo = float(row["ARG_OF_PERICENTER"]) * math.pi / 180
+    inclo = float(row["INCLINATION"]) * math.pi / 180
+    mo = float(row["MEAN_ANOMALY"]) * math.pi / 180
+    no_kozai = float(row["MEAN_MOTION"]) * 2 * math.pi / 1440
+    nodeo = float(row["RA_OF_ASC_NODE"]) * math.pi / 180
+
+    sat = Satrec()
+    sat.sgp4init(WGS72, "i", catalog_no, epoch_days,
+                 bstar, ndot, nddot,
+                 ecco, argpo, inclo, mo, no_kozai, nodeo)
+    return export_tle(sat)
 
 
 @tenacity.retry(
@@ -130,12 +171,16 @@ def persist_satellites(db: Session, records: list[dict]) -> tuple[int, int]:
     catalog_nos = [r["catalog_no"] for r in deduped]
 
     # Count pre-existing rows to compute insert vs update split without
-    # loading full ORM objects into Python memory
-    existing_count: int = (
-        db.query(func.count(Satellite.catalog_no))
-        .filter(Satellite.catalog_no.in_(catalog_nos))
-        .scalar()
-    )
+    # loading full ORM objects into Python memory.
+    # Batch the IN query to stay within SQLite's variable limit (999).
+    _BATCH = 500
+    existing_count = 0
+    for i in range(0, len(catalog_nos), _BATCH):
+        existing_count += (
+            db.query(func.count(Satellite.catalog_no))
+            .filter(Satellite.catalog_no.in_(catalog_nos[i : i + _BATCH]))
+            .scalar()
+        )
 
     now = datetime.utcnow()
     rows = [
@@ -157,26 +202,30 @@ def persist_satellites(db: Session, records: list[dict]) -> tuple[int, int]:
         for r in deduped
     ]
 
-    stmt = sqlite_insert(Satellite).values(rows)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["catalog_no"],
-        set_={
-            "name": stmt.excluded.name,
-            "intl_designator": stmt.excluded.intl_designator,
-            "line1": stmt.excluded.line1,
-            "line2": stmt.excluded.line2,
-            "epoch": stmt.excluded.epoch,
-            "a_km": stmt.excluded.a_km,
-            "ecc": stmt.excluded.ecc,
-            "inc_deg": stmt.excluded.inc_deg,
-            "mean_motion": stmt.excluded.mean_motion,
-            "regime": stmt.excluded.regime,
-            "group_name": stmt.excluded.group_name,
-            "updated_at": stmt.excluded.updated_at,
-        },
-    )
-
-    db.execute(stmt)
+    # SQLite has a ~999-variable limit per statement. With 13 columns per row,
+    # each batch can hold at most floor(999/13) = 76 rows safely; use 50 for margin.
+    _INSERT_BATCH = 50
+    for i in range(0, len(rows), _INSERT_BATCH):
+        chunk = rows[i : i + _INSERT_BATCH]
+        stmt = sqlite_insert(Satellite).values(chunk)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["catalog_no"],
+            set_={
+                "name": stmt.excluded.name,
+                "intl_designator": stmt.excluded.intl_designator,
+                "line1": stmt.excluded.line1,
+                "line2": stmt.excluded.line2,
+                "epoch": stmt.excluded.epoch,
+                "a_km": stmt.excluded.a_km,
+                "ecc": stmt.excluded.ecc,
+                "inc_deg": stmt.excluded.inc_deg,
+                "mean_motion": stmt.excluded.mean_motion,
+                "regime": stmt.excluded.regime,
+                "group_name": stmt.excluded.group_name,
+                "updated_at": stmt.excluded.updated_at,
+            },
+        )
+        db.execute(stmt)
     db.commit()
 
     total = len(deduped)
@@ -185,3 +234,64 @@ def persist_satellites(db: Session, records: list[dict]) -> tuple[int, int]:
 
     logger.info("persist_satellites: inserted={} updated={}", inserted, updated)
     return (inserted, updated)
+
+
+# ---------------------------------------------------------------------------
+# S6.6 — Full ingestion pipeline (called by the scheduler)
+# ---------------------------------------------------------------------------
+
+
+async def ingest_tle_group(db: Session, cfg=None) -> int:
+    """Full ingestion pipeline: cached fetch → parse CSV TLE lines → classify → persist.
+
+    Calls get_cached_group() which honours the 2-hour file cache (S3.2).
+    Returns total satellite records upserted.
+    """
+    if cfg is None:
+        cfg = settings
+
+    raw = await get_cached_group(cfg.DEFAULT_GROUP, "csv")
+
+    records: list[dict] = []
+    reader = csv.DictReader(_io.StringIO(raw))
+    for row in reader:
+        line1 = row.get("TLE_LINE1", "").strip()
+        line2 = row.get("TLE_LINE2", "").strip()
+        if not line1 or not line2:
+            # CelesTrak GP CSV returns orbital elements directly — reconstruct TLE lines
+            try:
+                line1, line2 = _csv_row_to_tle_lines(row)
+            except (KeyError, ValueError, ZeroDivisionError):
+                continue
+        try:
+            rec = parse_tle(line1, line2)
+        except (TLEParseError, ValueError):
+            continue
+        try:
+            elems = derive_orbital_elements(rec.mean_motion, rec.ecc)
+            regime = classify_regime(rec.mean_motion, rec.ecc)
+            a_km: float | None = elems.a_km
+        except ValueError:
+            a_km = None
+            regime = None
+        records.append(
+            {
+                "catalog_no": rec.catalog_no,
+                "name": row.get("OBJECT_NAME", "").strip(),
+                "intl_designator": rec.intl_designator,
+                "line1": line1,
+                "line2": line2,
+                "epoch": rec.epoch,
+                "a_km": a_km,
+                "ecc": rec.ecc,
+                "inc_deg": rec.inc_deg,
+                "mean_motion": rec.mean_motion,
+                "regime": regime,
+                "group_name": cfg.DEFAULT_GROUP,
+            }
+        )
+
+    inserted, updated = persist_satellites(db, records)
+    total = inserted + updated
+    logger.info("ingest_tle_group: total={} inserted={} updated={}", total, inserted, updated)
+    return total

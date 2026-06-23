@@ -3,7 +3,6 @@
 from datetime import datetime, timezone
 
 import numpy as np
-import pytest
 from sgp4.api import jday as sgp4_jday
 
 from app.services.propagation import build_satrec, build_satrec_array, propagate, propagate_array

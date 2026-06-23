@@ -71,6 +71,16 @@ class PositionsResponse(BaseModel):
     positions: list[PositionSample]
 
 
+class BulkPositionsResponse(BaseModel):
+    """Sampled position tracks for multiple satellites (``GET /satellites/positions``).
+
+    Each entry in ``satellites`` is one ``PositionsResponse``; the list is empty when none of
+    the requested catalog numbers exist in the DB — that is not an error condition.
+    """
+
+    satellites: list[PositionsResponse]
+
+
 # ---------------------------------------------------------------------------
 # Conjunction schemas
 # ---------------------------------------------------------------------------
