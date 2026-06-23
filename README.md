@@ -207,23 +207,17 @@ Interactive docs available at `/docs` (Swagger UI) and `/redoc`.
 
 ## Screenshots
 
-### Globe — animated satellite tracks
+### Globe with Risk Monitor panel
 
-Satellites coloured by orbital regime (yellow = LEO, green = MEO, cyan = GEO, red = HEO) rendered on an offline Natural Earth globe with time-animated tracks.
+The 3D globe (offline Natural Earth imagery) shows 15,000+ active satellites colour-coded by orbital regime (yellow = LEO, green = MEO, cyan = GEO, red = HEO). The Risk Monitor panel on the right displays live stats, orbital-regime distribution, and the risk ranking table sorted by miss distance.
 
-![Globe with animated satellites across orbital regimes](docs/screenshots/globe-satellites.png)
+![Globe with satellite tracks and Risk Monitor panel open](docs/screenshots/globe-satellites.png)
 
-### Globe — risk polylines
+### Risk ranking table and close-approach chart
 
-Red polylines connect at-risk pairs (miss distance ≤ 1 km) and orange lines show pairs within the 5 km threshold. Polylines track the moving satellites as the Cesium clock advances.
+The lower section of the Risk Monitor shows the close-approaches-by-regime bar chart and the full risk ranking table listing the highest-risk satellite pairs with their miss distance and relative velocity.
 
-![Globe highlighting conjunction risk polylines between at-risk satellite pairs](docs/screenshots/globe-risk-polylines.png)
-
-### Insights dashboard
-
-The dashboard panel (bottom-right) shows the orbital-regime distribution chart, close-approach count chart, and the risk ranking table sorted by miss distance.
-
-![Dashboard panels showing regime distribution, approach counts, and risk ranking table](docs/screenshots/dashboard.png)
+![Risk ranking table and close-approach bar chart](docs/screenshots/dashboard.png)
 
 ---
 
