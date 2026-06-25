@@ -36,7 +36,7 @@ COPY --from=builder /opt/venv /opt/venv
 # Activate the venv for all subsequent commands and the running container
 ENV PATH="/opt/venv/bin:$PATH"
 # Ensure 'backend' package is importable when running from WORKDIR
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app:/app/backend
 
 WORKDIR /app
 
