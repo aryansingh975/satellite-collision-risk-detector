@@ -1,6 +1,6 @@
 // API client layer — S7.2 / S10.2
 // Base URL defaults to the live FastAPI backend. Override via VITE_API_BASE_URL in frontend/.env.
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? "" : "http://localhost:8000");
 
 // Build a query string from a params object, omitting null/undefined values.
 function buildUrl(base, params) {

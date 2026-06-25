@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 
     # CORS + static serving
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
-    STATIC_DIR: str = "frontend"
+    STATIC_DIR: str = "frontend/dist"
 
     # ------------------------------------------------------------------
     # Validators
