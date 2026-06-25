@@ -1,0 +1,29 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            cd ~/satellite-collision-risk-detector
+            git pull origin main
+            docker build -t satellite-app .
+            docker stop satellite-app || true
+            docker rm satellite-app || true
+            docker run -d \
+              --name satellite-app \
+              --restart unless-stopped \
+              -p 8000:8000 \
+              -v ~/satellite-data:/app/data \
+              -e DATABASE_URL=sqlite:////app/data/satellite_tracking.db \
+              satellite-app

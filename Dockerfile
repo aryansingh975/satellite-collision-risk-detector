@@ -1,3 +1,11 @@
+# ── Stage 0: build frontend ───────────────────────────────────────────────────
+FROM node:20-alpine AS frontend-builder
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
 # ── Stage 1: builder ─────────────────────────────────────────────────────────
 # Install runtime dependencies into an isolated venv using uv (fast resolver).
 FROM python:3.11-slim AS builder
@@ -31,6 +39,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONPATH=/app
 
 WORKDIR /app
+
+# Copy built frontend from the Node stage
+COPY --from=frontend-builder /frontend/dist ./frontend/dist
 
 # Copy application source — keep backend/ and pyproject.toml together
 # so hatchling/importlib can locate the package correctly.

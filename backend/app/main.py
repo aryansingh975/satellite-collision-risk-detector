@@ -51,7 +51,8 @@ app.add_middleware(
 _static_dir = Path(settings.STATIC_DIR)
 if not _static_dir.is_absolute():
     _static_dir = Path(__file__).parent.parent.parent / settings.STATIC_DIR
-app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+if _static_dir.exists():
+    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="static")
 
 app.include_router(satellites.router, prefix="/satellites", tags=["satellites"])
 app.include_router(conjunctions.router, prefix="/conjunctions", tags=["conjunctions"])
