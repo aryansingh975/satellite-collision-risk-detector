@@ -11,12 +11,10 @@ jobs:
       - name: SSH and deploy
         env:
           EC2_KEY: ${{ secrets.EC2_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
         run: |
           echo "$EC2_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
-          ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key $EC2_USER@$EC2_HOST << 'ENDSSH'
+          ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key ubuntu@13.62.49.255 << 'ENDSSH'
             cd ~/satellite-collision-risk-detector
             git pull origin main
             docker build -t satellite-app .
