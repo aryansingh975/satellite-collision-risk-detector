@@ -8,9 +8,9 @@ A prototype system for identifying potential collision risks between Earth-orbit
 
 ## Live Demo
 
-Deploy your own instance in minutes using the included `render.yaml` Blueprint (see [Deployment](#deployment) below).
+**[http://13.62.49.255:8000](http://13.62.49.255:8000)** — live on AWS EC2, tracking 15,881 active satellites 24/7.
 
-> **Cold-start note**: Render free-tier services spin down after inactivity. The first request after a sleep may take 30–60 s while the container boots and re-seeds CelesTrak data.
+> Auto-deploys from `main` via GitHub Actions on every push.
 
 ---
 
@@ -209,7 +209,7 @@ Interactive docs available at `/docs` (Swagger UI) and `/redoc`.
 
 ### Globe with Risk Monitor panel
 
-The 3D globe (offline Natural Earth imagery) shows 15,000+ active satellites colour-coded by orbital regime (yellow = LEO, green = MEO, cyan = GEO, red = HEO). The Risk Monitor panel on the right displays live stats, orbital-regime distribution, and the risk ranking table sorted by miss distance.
+The 3D globe (offline Natural Earth imagery) shows 15,000+ active satellites colour-coded by orbital regime (cyan = LEO, green = MEO, yellow = GEO, purple = HEO). The Risk Monitor panel on the right displays live stats, orbital-regime distribution, and the risk ranking table sorted by miss distance.
 
 ![Globe with satellite tracks and Risk Monitor panel open](docs/screenshots/globe-satellites.png)
 
@@ -223,15 +223,13 @@ The lower section of the Risk Monitor shows the close-approaches-by-regime bar c
 
 ## Deployment
 
-### Render.com (recommended — one-click Blueprint)
+### AWS EC2 (current deployment)
 
-1. Push this repo to GitHub.
-2. Sign in at [dashboard.render.com](https://dashboard.render.com) → **New → Blueprint**.
-3. Connect the repo — Render detects `render.yaml` automatically.
-4. Optionally set `CORS_ORIGINS` and `CESIUM_ION_TOKEN` in the Environment tab.
-5. Click **Apply** — Render builds the Docker image, runs `seed.py`, and starts uvicorn.
+The app runs on an AWS EC2 t3.micro instance (free tier) at `http://13.62.49.255:8000`.
+GitHub Actions auto-deploys on every push to `main` — see `.github/workflows/deploy.yml`.
 
-The `startCommand` in `render.yaml` runs `seed.py` before launching uvicorn, so CelesTrak TLE data is populated on every cold boot. `seed.py` is idempotent — safe to re-run.
+The Docker image bundles the Vite-built frontend and FastAPI backend in a single container.
+SQLite data is persisted on the host via `-v ~/satellite-data:/app/data`.
 
 ### Local Docker
 
