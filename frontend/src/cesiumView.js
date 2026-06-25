@@ -29,10 +29,10 @@ export { viewer };
 // ─── S7.3 — Satellite Entities ───────────────────────────────────────────────
 
 const _REGIME_COLOUR_MAP = {
-  LEO: Cesium.Color.YELLOW,
+  LEO: Cesium.Color.CYAN,
   MEO: Cesium.Color.GREEN,
-  GEO: Cesium.Color.CYAN,
-  HEO: Cesium.Color.RED,
+  GEO: Cesium.Color.YELLOW,
+  HEO: Cesium.Color.PURPLE,
 };
 
 export function regimeColour(regime) {

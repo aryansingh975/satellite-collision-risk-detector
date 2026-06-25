@@ -6,6 +6,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
@@ -48,12 +49,7 @@ app.add_middleware(
     allow_credentials=False,
 )
 
-_static_dir = Path(settings.STATIC_DIR)
-if not _static_dir.is_absolute():
-    _static_dir = Path(__file__).parent.parent.parent / settings.STATIC_DIR
-if _static_dir.exists():
-    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="static")
-
+# API routes first — must be registered before any static mounts
 app.include_router(satellites.router, prefix="/satellites", tags=["satellites"])
 app.include_router(conjunctions.router, prefix="/conjunctions", tags=["conjunctions"])
 app.include_router(stats.router, prefix="/stats", tags=["stats"])
@@ -62,3 +58,19 @@ app.include_router(stats.router, prefix="/stats", tags=["stats"])
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+# Static file serving — registered last so API routes always take priority.
+# Mount specific subdirectories rather than "/" to avoid intercepting API paths.
+_static_dir = Path(settings.STATIC_DIR)
+if not _static_dir.is_absolute():
+    _static_dir = Path(__file__).parent.parent.parent / settings.STATIC_DIR
+if _static_dir.exists():
+    for _subdir in ["assets", "cesium", "Workers"]:
+        _subpath = _static_dir / _subdir
+        if _subpath.exists():
+            app.mount(f"/{_subdir}", StaticFiles(directory=str(_subpath)), name=_subdir)
+
+    @app.get("/")
+    async def _serve_index() -> FileResponse:
+        return FileResponse(str(_static_dir / "index.html"))
