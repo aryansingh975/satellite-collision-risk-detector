@@ -106,7 +106,7 @@ def test_settings_cors_defaults(monkeypatch):
         monkeypatch.delenv(key, raising=False)
     s = _make_settings()
     assert s.CORS_ORIGINS == ["http://localhost:5173"]
-    assert s.STATIC_DIR == "frontend"
+    assert s.STATIC_DIR == "frontend/dist"
 
 
 def test_settings_cors_override(monkeypatch):

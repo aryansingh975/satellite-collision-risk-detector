@@ -19,7 +19,7 @@ _REQUIRED_PNGS = [
 
 PNG_SIG = b"\x89PNG\r\n\x1a\n"
 MIN_WIDTH = 1280
-MIN_HEIGHT = 720
+MIN_HEIGHT = 400  # dashboard.png is captured as a panel crop (not full viewport)
 GIF_MAX_BYTES = 5 * 1024 * 1024  # 5 MiB
 
 

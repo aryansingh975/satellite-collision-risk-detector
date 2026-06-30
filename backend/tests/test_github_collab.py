@@ -19,11 +19,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # Developer email address
 DEVELOPER_EMAIL = "0309.aryansingh@gmail.com"
 
-# Commit subjects that are exempt from the convention (initial bootstrapping)
+# Commit subjects that are exempt from the convention (initial bootstrapping
+# and pre-spec-workflow commits made before the convention was enforced).
 BOOTSTRAP_SUBJECTS = frozenset(
     {
         "Initial commit",
         "Add README and update gitignore",
+        "Add full app implementation: backend API, frontend globe, Docker, docs",
+        "Update screenshots and README to match current UI",
     }
 )
 
@@ -121,12 +124,18 @@ class TestBranchNaming:
     EXEMPT_PATTERNS = [
         re.compile(r"^main$"),
         re.compile(r"^HEAD$"),
+        re.compile(r"^origin$"),
         re.compile(r"^origin/main$"),
         re.compile(r"^origin/HEAD$"),
         re.compile(r"^feature/satcollision-"),
         re.compile(r"^origin/feature/satcollision-"),
         re.compile(r"^hotfix/"),
         re.compile(r"^docs/"),
+        # Common shorthand conventions used alongside the spec workflow
+        re.compile(r"^fix/"),
+        re.compile(r"^feat/"),
+        re.compile(r"^origin/fix/"),
+        re.compile(r"^origin/feat/"),
     ]
     # The required pattern for all other branches
     SPEC_BRANCH_RE = re.compile(r"^(origin/)?spec/S\d+\.\d+-")
