@@ -213,6 +213,12 @@ The 3D globe (offline Natural Earth imagery) shows 15,000+ active satellites col
 
 ![Globe with satellite tracks and Risk Monitor panel open](docs/screenshots/globe-satellites.png)
 
+### Risk polylines between at-risk pairs
+
+Red polylines connect satellite pairs whose predicted closest approach falls within the 5 km miss-distance threshold (matching CelesTrak SOCRATES). Each polyline updates in real time as the Cesium clock advances.
+
+![Risk polylines connecting at-risk satellite pairs](docs/screenshots/globe-risk-polylines.png)
+
 ### Risk ranking table and close-approach chart
 
 The lower section of the Risk Monitor shows the close-approaches-by-regime bar chart and the full risk ranking table listing the highest-risk satellite pairs with their miss distance and relative velocity.

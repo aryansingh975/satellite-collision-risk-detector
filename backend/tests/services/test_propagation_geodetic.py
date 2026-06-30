@@ -120,22 +120,21 @@ def test_teme_to_geodetic_decayed_sat(captured_warnings):
         datetime(2024, 5, 2, 12, 11, 0, tzinfo=timezone.utc),
         datetime(2024, 5, 2, 12, 21, 0, tzinfo=timezone.utc),
     ]
-    call_count = 0
 
-    def _mock_at(ts_t):  # noqa: ARG001
-        nonlocal call_count
-        call_count += 1
-        mock_geo = MagicMock()
-        if call_count == 2:
-            mock_geo.position.km = np.array([np.nan, np.nan, np.nan])
-        else:
-            mock_geo.position.km = np.array([7000.0, 0.0, 0.0])
-        return mock_geo
+    # sat.at() is called ONCE with a vectorized time array; return shape (3, 2)
+    # where the 2nd column is NaN (simulating a decayed-satellite timestep).
+    mock_geo = MagicMock()
+    mock_geo.position.km = np.array([
+        [7000.0, np.nan],
+        [0.0,    np.nan],
+        [0.0,    np.nan],
+    ])
 
+    # wgs84.subpoint returns arrays of length 2; 2nd values are never used (NaN row skipped).
     mock_subpoint = MagicMock()
-    mock_subpoint.latitude.degrees = 51.6
-    mock_subpoint.longitude.degrees = -10.0
-    mock_subpoint.elevation.km = 420.0
+    mock_subpoint.latitude.degrees = np.array([51.6, 0.0])
+    mock_subpoint.longitude.degrees = np.array([-10.0, 0.0])
+    mock_subpoint.elevation.km = np.array([420.0, 0.0])
 
     with (
         patch("app.services.propagation.EarthSatellite") as MockESat,
@@ -144,7 +143,7 @@ def test_teme_to_geodetic_decayed_sat(captured_warnings):
         mock_sat = MagicMock()
         mock_sat.model.error = 0
         mock_sat.model.satnum = 25544
-        mock_sat.at.side_effect = _mock_at
+        mock_sat.at.return_value = mock_geo
         MockESat.return_value = mock_sat
         mock_wgs84.subpoint.return_value = mock_subpoint
 

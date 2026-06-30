@@ -27,7 +27,7 @@ async def test_fetch_group_returns_body():
     """Outcome 1: mocked 200 response body is returned verbatim."""
     mock_body = "OBJECT_NAME,OBJECT_ID,EPOCH\nISS (ZARYA),1998-067A,2024-01-01"
     with respx.mock:
-        respx.get("https://celestrak.org/GPS/gp.php").mock(
+        respx.get("https://celestrak.org/NORAD/elements/gp.php").mock(
             return_value=httpx.Response(200, text=mock_body)
         )
         result = await fetch_group("active", "csv")
@@ -43,7 +43,7 @@ async def test_fetch_group_returns_body():
 async def test_fetch_group_url_contains_group_and_format():
     """Outcome 2: outgoing URL carries correct GROUP and FORMAT query params."""
     with respx.mock:
-        route = respx.get("https://celestrak.org/GPS/gp.php").mock(
+        route = respx.get("https://celestrak.org/NORAD/elements/gp.php").mock(
             return_value=httpx.Response(200, text="data")
         )
         await fetch_group("stations", "json")
@@ -57,7 +57,7 @@ async def test_fetch_group_url_contains_group_and_format():
 async def test_fetch_group_default_group_is_active():
     """FR-1 default: omitting group arg results in GROUP=active in the URL."""
     with respx.mock:
-        route = respx.get("https://celestrak.org/GPS/gp.php").mock(
+        route = respx.get("https://celestrak.org/NORAD/elements/gp.php").mock(
             return_value=httpx.Response(200, text="data")
         )
         await fetch_group(fmt="csv")
@@ -75,7 +75,7 @@ async def test_fetch_group_default_group_is_active():
 async def test_fetch_group_retries_on_5xx():
     """Outcome 3: 503 triggers all 3 attempts, then raises HTTPStatusError."""
     with respx.mock:
-        route = respx.get("https://celestrak.org/GPS/gp.php").mock(
+        route = respx.get("https://celestrak.org/NORAD/elements/gp.php").mock(
             return_value=httpx.Response(503, text="Service Unavailable")
         )
         with pytest.raises(httpx.HTTPStatusError):
@@ -88,7 +88,7 @@ async def test_fetch_group_retries_on_5xx():
 async def test_fetch_group_raises_on_403():
     """Outcome 4: 403 is not silently swallowed — HTTPStatusError raised after retries."""
     with respx.mock:
-        respx.get("https://celestrak.org/GPS/gp.php").mock(
+        respx.get("https://celestrak.org/NORAD/elements/gp.php").mock(
             return_value=httpx.Response(403, text="Forbidden")
         )
         with pytest.raises(httpx.HTTPStatusError):
